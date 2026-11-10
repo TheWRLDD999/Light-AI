@@ -1,4 +1,3 @@
-
 #include <jni.h>
 #include <string>
 #include <vector>
@@ -133,7 +132,7 @@ Java_com_thewrldd999_lightai_MainActivity_generateResponse(
         nullptr,
         0,
         true,
-        false
+        true
     );
 
     if (needed >= 0) {
@@ -149,7 +148,7 @@ Java_com_thewrldd999_lightai_MainActivity_generateResponse(
         tokens.data(),
         (int32_t) tokens.size(),
         true,
-        false
+        true
     );
 
     if (tokenCount <= 0) {
