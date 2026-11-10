@@ -37,7 +37,7 @@ jobs:
             "ndk;27.2.12479018" \
             "cmake;3.22.1"
 
-      - name: Build llama.cpp core for 32-bit ARM
+      - name: Build llama.cpp for 32-bit ARM
         run: |
           export ANDROID_NDK="$ANDROID_HOME/ndk/27.2.12479018"
 
@@ -61,14 +61,20 @@ jobs:
           cmake --build llama.cpp/build-android \
             --target llama --parallel 2
 
-      - name: Collect engine libraries
+      - name: Package engine libraries
         run: |
-          mkdir -p engine-libs
+          mkdir -p android/app/src/main/jniLibs/armeabi-v7a
+
           find llama.cpp/build-android \
             -type f -name "*.so" \
-            -exec cp -v {} engine-libs/ \;
+            -exec cp -v {} android/app/src/main/jniLibs/armeabi-v7a/ \;
 
-          ls -lh engine-libs
+          echo "Packaged engine libraries:"
+          ls -lh android/app/src/main/jniLibs/armeabi-v7a/
+
+      - name: Verify library architecture
+        run: |
+          file android/app/src/main/jniLibs/armeabi-v7a/*.so
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -84,5 +90,5 @@ jobs:
           name: Light-AI-Engine-Test
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            engine-libs/
+            android/app/src/main/jniLibs/armeabi-v7a/*.so
             
