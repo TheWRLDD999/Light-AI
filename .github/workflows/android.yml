@@ -61,6 +61,19 @@ jobs:
           cmake --build llama.cpp/build-android \
             --target llama --parallel 2
 
+      - name: Copy AI engine headers
+        run: |
+          mkdir -p android/app/src/main/cpp/include/llama
+          mkdir -p android/app/src/main/cpp/include/ggml
+
+          cp -v llama.cpp/include/*.h \
+            android/app/src/main/cpp/include/llama/
+
+          cp -v llama.cpp/ggml/include/*.h \
+            android/app/src/main/cpp/include/ggml/
+
+          echo "AI headers copied successfully"
+
       - name: Package engine libraries
         run: |
           mkdir -p android/app/src/main/jniLibs/armeabi-v7a
