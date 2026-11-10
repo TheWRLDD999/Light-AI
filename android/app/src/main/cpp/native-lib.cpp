@@ -1,7 +1,11 @@
+
 #include <jni.h>
 #include <string>
 #include <vector>
 #include <mutex>
+#include <fstream>
+#include <sstream>
+#include <sys/stat.h>
 
 #include "llama.h"
 
@@ -10,11 +14,36 @@ static llama_context * context = nullptr;
 static const llama_vocab * vocab = nullptr;
 
 static std::mutex aiMutex;
+static std::mutex logMutex;
+static std::string capturedLog;
+
+static void captureLlamaLog(
+        enum ggml_log_level level,
+        const char * text,
+        void * userData) {
+
+    (void) level;
+    (void) userData;
+
+    if (text == nullptr) return;
+
+    std::lock_guard<std::mutex> lock(logMutex);
+
+    capturedLog += text;
+
+    if (capturedLog.size() > 1200) {
+        capturedLog.erase(
+            0,
+            capturedLog.size() - 1200
+        );
+    }
+}
 
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_thewrldd999_lightai_MainActivity_getEngineStatus(
         JNIEnv* env, jobject) {
+
     return env->NewStringUTF(
         "Light AI native engine connected!"
     );
@@ -27,10 +56,61 @@ Java_com_thewrldd999_lightai_MainActivity_loadModel(
 
     std::lock_guard<std::mutex> lock(aiMutex);
 
-    const char * path = env->GetStringUTFChars(modelPath, nullptr);
+    const char * path =
+        env->GetStringUTFChars(modelPath, nullptr);
 
     if (path == nullptr) {
-        return env->NewStringUTF("Could not read model path.");
+        return env->NewStringUTF(
+            "Could not read model path."
+        );
+    }
+
+    struct stat fileInfo;
+
+    if (stat(path, &fileInfo) != 0) {
+        env->ReleaseStringUTFChars(modelPath, path);
+
+        return env->NewStringUTF(
+            "Model file does not exist."
+        );
+    }
+
+    long long fileSize =
+        static_cast<long long>(fileInfo.st_size);
+
+    if (fileSize < 1000000) {
+        env->ReleaseStringUTFChars(modelPath, path);
+
+        return env->NewStringUTF(
+            "Model file is too small. The download may be incomplete."
+        );
+    }
+
+    std::ifstream file(path, std::ios::binary);
+
+    char magic[4] = {0, 0, 0, 0};
+
+    if (!file.read(magic, 4)) {
+        file.close();
+        env->ReleaseStringUTFChars(modelPath, path);
+
+        return env->NewStringUTF(
+            "Could not read the model file header."
+        );
+    }
+
+    file.close();
+
+    if (magic[0] != 'G' ||
+        magic[1] != 'G' ||
+        magic[2] != 'U' ||
+        magic[3] != 'F') {
+
+        env->ReleaseStringUTFChars(modelPath, path);
+
+        return env->NewStringUTF(
+            "Downloaded file is not a valid GGUF model. The download may be incomplete."
+        );
     }
 
     if (context != nullptr) {
@@ -44,6 +124,11 @@ Java_com_thewrldd999_lightai_MainActivity_loadModel(
         vocab = nullptr;
     }
 
+    {
+        std::lock_guard<std::mutex> logLock(logMutex);
+        capturedLog.clear();
+    }
+
     llama_backend_init();
 
     llama_model_params modelParams =
@@ -52,14 +137,41 @@ Java_com_thewrldd999_lightai_MainActivity_loadModel(
     modelParams.n_gpu_layers = 0;
     modelParams.load_mode = LLAMA_LOAD_MODE_MMAP;
 
-    model = llama_model_load_from_file(path, modelParams);
+    llama_log_set(captureLlamaLog, nullptr);
+
+    model = llama_model_load_from_file(
+        path,
+        modelParams
+    );
+
+    llama_log_set(nullptr, nullptr);
 
     env->ReleaseStringUTFChars(modelPath, path);
 
     if (model == nullptr) {
-        return env->NewStringUTF(
-            "Model loading failed. Check the model file."
-        );
+
+        std::string details;
+
+        {
+            std::lock_guard<std::mutex> logLock(logMutex);
+            details = capturedLog;
+        }
+
+        std::ostringstream error;
+
+        error << "Model loading failed."
+              << "\nFile size: "
+              << fileSize
+              << " bytes."
+              << "\nGGUF header: Valid.";
+
+        if (!details.empty()) {
+            error << "\nEngine details:\n" << details;
+        } else {
+            error << "\nNo engine error details were captured.";
+        }
+
+        return env->NewStringUTF(error.str().c_str());
     }
 
     vocab = llama_model_get_vocab(model);
@@ -73,7 +185,10 @@ Java_com_thewrldd999_lightai_MainActivity_loadModel(
     contextParams.n_threads = 2;
     contextParams.n_threads_batch = 2;
 
-    context = llama_init_from_model(model, contextParams);
+    context = llama_init_from_model(
+        model,
+        contextParams
+    );
 
     if (context == nullptr) {
         llama_model_free(model);
@@ -81,7 +196,7 @@ Java_com_thewrldd999_lightai_MainActivity_loadModel(
         vocab = nullptr;
 
         return env->NewStringUTF(
-            "Model loaded, but context creation failed."
+            "Model loaded, but context creation failed. The phone may not have enough available memory."
         );
     }
 
@@ -97,7 +212,10 @@ Java_com_thewrldd999_lightai_MainActivity_generateResponse(
 
     std::lock_guard<std::mutex> lock(aiMutex);
 
-    if (model == nullptr || context == nullptr || vocab == nullptr) {
+    if (model == nullptr ||
+        context == nullptr ||
+        vocab == nullptr) {
+
         return env->NewStringUTF(
             "Please load the AI model first."
         );
@@ -107,7 +225,9 @@ Java_com_thewrldd999_lightai_MainActivity_generateResponse(
         env->GetStringUTFChars(userMessage, nullptr);
 
     if (message == nullptr) {
-        return env->NewStringUTF("Could not read your message.");
+        return env->NewStringUTF(
+            "Could not read your message."
+        );
     }
 
     std::string prompt =
@@ -123,7 +243,10 @@ Java_com_thewrldd999_lightai_MainActivity_generateResponse(
 
     env->ReleaseStringUTFChars(userMessage, message);
 
-    llama_memory_clear(llama_get_memory(context), true);
+    llama_memory_clear(
+        llama_get_memory(context),
+        true
+    );
 
     int32_t needed = llama_tokenize(
         vocab,
@@ -136,7 +259,9 @@ Java_com_thewrldd999_lightai_MainActivity_generateResponse(
     );
 
     if (needed >= 0) {
-        return env->NewStringUTF("Could not tokenize the message.");
+        return env->NewStringUTF(
+            "Could not tokenize the message."
+        );
     }
 
     std::vector<llama_token> tokens(-needed);
@@ -152,16 +277,24 @@ Java_com_thewrldd999_lightai_MainActivity_generateResponse(
     );
 
     if (tokenCount <= 0) {
-        return env->NewStringUTF("Message tokenization failed.");
+        return env->NewStringUTF(
+            "Message tokenization failed."
+        );
     }
 
     tokens.resize(tokenCount);
 
     if (llama_decode(
         context,
-        llama_batch_get_one(tokens.data(), tokenCount)
+        llama_batch_get_one(
+            tokens.data(),
+            tokenCount
+        )
     ) != 0) {
-        return env->NewStringUTF("Prompt processing failed.");
+
+        return env->NewStringUTF(
+            "Prompt processing failed."
+        );
     }
 
     llama_sampler * sampler =
@@ -226,7 +359,8 @@ Java_com_thewrldd999_lightai_MainActivity_generateResponse(
     llama_sampler_free(sampler);
 
     if (response.empty()) {
-        response = "I couldn't generate a response. Please try again.";
+        response =
+            "I couldn't generate a response. Please try again.";
     }
 
     return env->NewStringUTF(response.c_str());
