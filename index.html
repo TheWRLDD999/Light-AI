@@ -133,6 +133,46 @@ button:disabled {
   margin-top: 8px;
 }
 
+.progress-area {
+  display: none;
+  max-width: 760px;
+  margin: 0 auto 12px;
+  padding: 11px 13px;
+  background: #211d2b;
+  border: 1px solid #383044;
+  border-radius: 14px;
+}
+
+.progress-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #dcd3ed;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.progress-track {
+  height: 7px;
+  background: #393044;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #7544c5, #bd91ff);
+  border-radius: 20px;
+  transition: width .25s ease;
+}
+
+.progress-note {
+  color: #aaa2b8;
+  font-size: 10px;
+  margin-top: 7px;
+}
+
 </style>
 </head>
 
@@ -151,6 +191,22 @@ button:disabled {
 </main>
 
 <div class="composer">
+
+  <div class="progress-area" id="progressArea">
+    <div class="progress-heading">
+      <span id="progressLabel">Downloading Light AI's brain...</span>
+      <span id="progressPercent">0%</span>
+    </div>
+
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="progress-note" id="progressNote">
+      Preparing AI model...
+    </div>
+  </div>
+
   <form id="form">
     <textarea id="input" rows="1"
       placeholder="Message Light AI..." required></textarea>
@@ -175,6 +231,12 @@ const status = document.getElementById("status");
 const send = document.getElementById("send");
 const welcome = document.getElementById("welcome");
 
+const progressArea = document.getElementById("progressArea");
+const progressFill = document.getElementById("progressFill");
+const progressPercent = document.getElementById("progressPercent");
+const progressLabel = document.getElementById("progressLabel");
+const progressNote = document.getElementById("progressNote");
+
 let generator = null;
 let busy = false;
 
@@ -194,17 +256,59 @@ function addMessage(text, type) {
   return message;
 }
 
+function updateProgress(info) {
+  if (info.status === "progress_total" &&
+      Number.isFinite(info.progress)) {
+
+    const percent = Math.max(
+      0,
+      Math.min(100, info.progress)
+    );
+
+    progressFill.style.width = percent + "%";
+    progressPercent.textContent =
+      Math.round(percent) + "%";
+
+    progressNote.textContent =
+      "Downloading model files...";
+  }
+
+  if (info.status === "ready") {
+    progressFill.style.width = "100%";
+    progressPercent.textContent = "100%";
+    progressLabel.textContent = "Light AI is ready";
+    progressNote.textContent =
+      "Your AI model has loaded successfully.";
+  }
+}
+
 async function loadModel() {
   if (generator) return;
 
-  status.textContent = "Downloading Light AI's brain...";
+  progressArea.style.display = "block";
+  progressLabel.textContent =
+    "Downloading Light AI's brain...";
+  progressNote.textContent = "Preparing AI model...";
+  progressFill.style.width = "0%";
+  progressPercent.textContent = "0%";
+
+  status.textContent = "Loading Light AI...";
 
   generator = await pipeline(
     "text-generation",
-    MODEL
+    MODEL,
+    {
+      progress_callback: updateProgress
+    }
   );
 
-  status.textContent = "Light AI is ready 💜";
+  progressFill.style.width = "100%";
+  progressPercent.textContent = "100%";
+  progressLabel.textContent = "Light AI is ready";
+  progressNote.textContent =
+    "Your AI model has loaded successfully.";
+
+  status.textContent = "Light AI 💜 Ready";
 }
 
 async function sendMessage(text) {
@@ -266,10 +370,18 @@ async function sendMessage(text) {
   } catch (error) {
     console.error(error);
 
+    const detail = String(
+      error?.message || error
+    ).slice(0, 500);
+
     thinking.textContent =
-      "I couldn't load or run my AI model. Please check your internet connection and try again.";
+      "TEMPORARY DIAGNOSTIC ERROR:\n" + detail;
 
     status.textContent = "AI loading error";
+    progressLabel.textContent = "Loading failed";
+    progressNote.textContent =
+      "Temporary diagnostic mode is active.";
+
     generator = null;
 
   } finally {
