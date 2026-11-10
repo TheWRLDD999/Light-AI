@@ -1,3 +1,4 @@
+
 cmake_minimum_required(VERSION 3.22.1)
 
 project(lightai)
@@ -11,15 +12,18 @@ add_library(
     native-lib.cpp
 )
 
-find_library(
-    log-lib
-    log
+target_include_directories(lightai PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/llama
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ggml
 )
 
+find_library(log-lib log)
+
 add_library(llama SHARED IMPORTED)
+
 set_target_properties(llama PROPERTIES
     IMPORTED_LOCATION
-    ${CMAKE_SOURCE_DIR}/../jniLibs/armeabi-v7a/libllama.so
+    ${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/armeabi-v7a/libllama.so
 )
 
 target_link_libraries(
