@@ -4,8 +4,6 @@ package com.thewrldd999.lightai;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.os.Bundle;
-import android.os.Build;
-import android.os.Process;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebSettings;
@@ -18,23 +16,27 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        String[] abis = Build.SUPPORTED_ABIS;
-        String architecture = Process.is64Bit()
-                ? "64-bit Android"
-                : "32-bit Android";
+        String result;
 
-        StringBuilder details = new StringBuilder();
-        details.append("Android architecture: ")
-               .append(architecture)
-               .append("\nSupported ABIs:\n");
+        try {
+            System.loadLibrary("ggml-base");
+            System.loadLibrary("ggml-cpu");
+            System.loadLibrary("ggml");
+            System.loadLibrary("llama");
 
-        for (String abi : abis) {
-            details.append("• ").append(abi).append("\n");
+            result = "SUCCESS!\n\n"
+                    + "All four native libraries loaded.\n\n"
+                    + "Your 32-bit ARM engine is recognised by Android.";
+
+        } catch (UnsatisfiedLinkError e) {
+
+            result = "ENGINE LOAD FAILED\n\n"
+                    + e.getMessage();
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("Light AI — Device Check")
-                .setMessage(details.toString())
+                .setTitle("Light AI — Engine Test")
+                .setMessage(result)
                 .setPositiveButton("Continue", (dialog, which) -> {
                     openLightAI();
                 })
@@ -43,6 +45,7 @@ public class MainActivity extends Activity {
     }
 
     private void openLightAI() {
+
         webView = new WebView(this);
 
         WebSettings settings = webView.getSettings();
@@ -60,10 +63,11 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+
         if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
             super.onBackPressed();
         }
     }
-                                                }
+            }
