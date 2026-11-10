@@ -1,0 +1,11 @@
+
+{
+  "name": "Light AI",
+  "short_name": "Light AI",
+  "description": "Your lightweight AI assistant",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#100e17",
+  "theme_color": "#171322"
+}
