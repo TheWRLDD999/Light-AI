@@ -172,7 +172,6 @@ button:disabled {
   font-size: 10px;
   margin-top: 7px;
 }
-
 </style>
 </head>
 
@@ -194,7 +193,7 @@ button:disabled {
 
   <div class="progress-area" id="progressArea">
     <div class="progress-heading">
-      <span id="progressLabel">Downloading Light AI's brain...</span>
+      <span id="progressLabel">Preparing Light AI...</span>
       <span id="progressPercent">0%</span>
     </div>
 
@@ -257,9 +256,7 @@ function addMessage(text, type) {
 }
 
 function updateProgress(info) {
-  if (info.status === "progress_total" &&
-      Number.isFinite(info.progress)) {
-
+  if (typeof info.progress === "number") {
     const percent = Math.max(
       0,
       Math.min(100, info.progress)
@@ -269,8 +266,11 @@ function updateProgress(info) {
     progressPercent.textContent =
       Math.round(percent) + "%";
 
+    progressLabel.textContent =
+      "Downloading Light AI's brain...";
+
     progressNote.textContent =
-      "Downloading model files...";
+      info.file || "Downloading model files...";
   }
 
   if (info.status === "ready") {
@@ -298,6 +298,8 @@ async function loadModel() {
     "text-generation",
     MODEL,
     {
+      dtype: "q4",
+      device: "wasm",
       progress_callback: updateProgress
     }
   );
@@ -412,5 +414,4 @@ input.addEventListener("keydown", event => {
 </script>
 
 </body>
-  </html>
-  
+</html>
