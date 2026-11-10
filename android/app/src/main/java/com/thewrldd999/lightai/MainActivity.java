@@ -12,6 +12,16 @@ public class MainActivity extends Activity {
 
     private WebView webView;
 
+    static {
+        System.loadLibrary("ggml-base");
+        System.loadLibrary("ggml-cpu");
+        System.loadLibrary("ggml");
+        System.loadLibrary("llama");
+        System.loadLibrary("lightai");
+    }
+
+    public native String getEngineStatus();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -19,23 +29,13 @@ public class MainActivity extends Activity {
         String result;
 
         try {
-            System.loadLibrary("ggml-base");
-            System.loadLibrary("ggml-cpu");
-            System.loadLibrary("ggml");
-            System.loadLibrary("llama");
-
-            result = "SUCCESS!\n\n"
-                    + "All four native libraries loaded.\n\n"
-                    + "Your 32-bit ARM engine is recognised by Android.";
-
+            result = getEngineStatus();
         } catch (UnsatisfiedLinkError e) {
-
-            result = "ENGINE LOAD FAILED\n\n"
-                    + e.getMessage();
+            result = "BRIDGE TEST FAILED\n\n" + e.getMessage();
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("Light AI — Engine Test")
+                .setTitle("Light AI — Bridge Test")
                 .setMessage(result)
                 .setPositiveButton("Continue", (dialog, which) -> {
                     openLightAI();
@@ -45,7 +45,6 @@ public class MainActivity extends Activity {
     }
 
     private void openLightAI() {
-
         webView = new WebView(this);
 
         WebSettings settings = webView.getSettings();
@@ -53,7 +52,6 @@ public class MainActivity extends Activity {
         settings.setDomStorageEnabled(true);
 
         webView.setWebViewClient(new WebViewClient());
-
         webView.loadUrl(
             "https://thewrldd999.github.io/Light-AI/"
         );
@@ -63,7 +61,6 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-
         if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
