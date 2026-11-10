@@ -1,0 +1,37 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300">
+  <defs>
+    <linearGradient id="purple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e4caff"/>
+      <stop offset="50%" stop-color="#a66cff"/>
+      <stop offset="100%" stop-color="#7135d8"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(20 10)">
+    <circle cx="140" cy="140" r="112" fill="none" stroke="#a66cff" stroke-width="4" opacity=".3"/>
+    <ellipse cx="140" cy="140" rx="145" ry="65"
+      fill="none" stroke="url(#purple)" stroke-width="9"
+      transform="rotate(-30 140 140)"/>
+    <path d="M87 75 L140 27 L193 75 L174 69 L140 51 L106 69 Z"
+      fill="url(#purple)"/>
+    <path d="M112 83 V225 H205 V195 H151 V83 Z"
+      fill="url(#purple)"/>
+    <circle cx="245" cy="48" r="6" fill="#fff"/>
+    <circle cx="36" cy="205" r="5" fill="#cba7ff"/>
+  </g>
+
+  <text x="330" y="143" font-family="Arial, sans-serif"
+    font-size="92" font-weight="800" letter-spacing="3"
+    fill="#f5efff">LIGHT</text>
+  <text x="330" y="225" font-family="Arial, sans-serif"
+    font-size="72" font-weight="800" letter-spacing="8"
+    fill="url(#purple)">AI</text>
+  <path d="M465 198 H790" stroke="#8256d9" stroke-width="3"
+    stroke-linecap="round" opacity=".8"/>
+  <text x="470" y="245" font-family="Arial, sans-serif"
+    font-size="19" letter-spacing="4" fill="#b9a9d2">
+    THINK • LEARN • CREATE
+  </text>
+</svg>
+      
