@@ -10,9 +10,7 @@
 <title>Light AI</title>
 
 <style>
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -25,7 +23,7 @@ body {
 }
 
 header {
-  min-height: 75px;
+  min-height: 70px;
   display: flex;
   align-items: center;
   padding: 10px 18px;
@@ -35,7 +33,6 @@ header {
 header img {
   width: 175px;
   max-width: 65vw;
-  height: auto;
 }
 
 main {
@@ -49,13 +46,12 @@ main {
 
 .welcome {
   text-align: center;
-  margin: 12vh auto 30px;
+  margin: 10vh auto 30px;
 }
 
 .welcome img {
-  width: 110px;
-  height: 110px;
-  margin-bottom: 15px;
+  width: 100px;
+  height: 100px;
 }
 
 .welcome h1 {
@@ -124,19 +120,19 @@ button {
   border-radius: 14px;
   padding: 0 17px;
   font-weight: 700;
-  cursor: pointer;
 }
 
-button:active {
-  opacity: .7;
+button:disabled {
+  opacity: .5;
 }
 
 .status {
   text-align: center;
-  color: #8f879c;
+  color: #aaa2b8;
   font-size: 11px;
   margin-top: 8px;
 }
+
 </style>
 </head>
 
@@ -148,7 +144,7 @@ button:active {
 
 <main id="chat">
   <div class="welcome" id="welcome">
-    <img src="icon.svg" alt="Light AI app icon">
+    <img src="icon.svg" alt="Light AI icon">
     <h1>What can I help with?</h1>
     <p>A simpler space to think, learn and create.</p>
   </div>
@@ -158,19 +154,36 @@ button:active {
   <form id="form">
     <textarea id="input" rows="1"
       placeholder="Message Light AI..." required></textarea>
-    <button type="submit">Send</button>
+    <button id="send" type="submit">Send</button>
   </form>
 
   <div class="status" id="status">
-    Light AI · AI connection coming soon
+    Light AI · Ready to start
   </div>
 </div>
 
-<script>
+<script type="module">
+import { pipeline } from
+  "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2";
+
+const MODEL = "HuggingFaceTB/SmolLM2-135M-Instruct";
+
 const form = document.getElementById("form");
 const input = document.getElementById("input");
 const chat = document.getElementById("chat");
+const status = document.getElementById("status");
+const send = document.getElementById("send");
 const welcome = document.getElementById("welcome");
+
+let generator = null;
+let busy = false;
+
+const conversation = [
+  {
+    role: "system",
+    content: "You are Light AI, a friendly, helpful and clear assistant. Give simple, useful answers. Be honest when you don't know something."
+  }
+];
 
 function addMessage(text, type) {
   const message = document.createElement("div");
@@ -178,20 +191,104 @@ function addMessage(text, type) {
   message.textContent = text;
   chat.appendChild(message);
   chat.scrollTop = chat.scrollHeight;
+  return message;
+}
+
+async function loadModel() {
+  if (generator) return;
+
+  status.textContent = "Downloading Light AI's brain...";
+
+  generator = await pipeline(
+    "text-generation",
+    MODEL
+  );
+
+  status.textContent = "Light AI is ready 💜";
+}
+
+async function sendMessage(text) {
+  if (busy) return;
+
+  busy = true;
+  send.disabled = true;
+  input.disabled = true;
+
+  welcome?.remove();
+
+  addMessage(text, "user");
+
+  conversation.push({
+    role: "user",
+    content: text
+  });
+
+  const thinking = addMessage(
+    "Thinking...",
+    "assistant"
+  );
+
+  try {
+    await loadModel();
+
+    status.textContent = "Light AI is thinking...";
+
+    const recentMessages = [
+      conversation[0],
+      ...conversation.slice(-8)
+    ];
+
+    const result = await generator(
+      recentMessages,
+      {
+        max_new_tokens: 100,
+        temperature: 0.7,
+        do_sample: true
+      }
+    );
+
+    const generated = result[0].generated_text;
+
+    const answer = Array.isArray(generated)
+      ? generated[generated.length - 1].content
+      : String(generated);
+
+    thinking.textContent = answer.trim() ||
+      "I couldn't generate an answer. Try again.";
+
+    conversation.push({
+      role: "assistant",
+      content: answer
+    });
+
+    status.textContent = "Light AI · Ready";
+
+  } catch (error) {
+    console.error(error);
+
+    thinking.textContent =
+      "I couldn't load or run my AI model. Please check your internet connection and try again.";
+
+    status.textContent = "AI loading error";
+    generator = null;
+
+  } finally {
+    busy = false;
+    send.disabled = false;
+    input.disabled = false;
+    input.focus();
+    chat.scrollTop = chat.scrollHeight;
+  }
 }
 
 form.addEventListener("submit", event => {
   event.preventDefault();
 
   const text = input.value.trim();
-  if (!text) return;
+  if (!text || busy) return;
 
-  welcome?.remove();
-  addMessage(text, "user");
   input.value = "";
-
-  document.getElementById("status").textContent =
-    "AI connection coming soon";
+  sendMessage(text);
 });
 
 input.addEventListener("keydown", event => {
@@ -203,4 +300,5 @@ input.addEventListener("keydown", event => {
 </script>
 
 </body>
-</html>
+  </html>
+  
