@@ -202,7 +202,7 @@ button:disabled {
     </div>
 
     <div class="progress-note" id="progressNote">
-      Preparing AI model...
+      Getting everything ready...
     </div>
   </div>
 
@@ -221,7 +221,8 @@ button:disabled {
 import { pipeline } from
   "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2";
 
-const MODEL = "HuggingFaceTB/SmolLM2-135M-Instruct";
+const MODEL =
+  "onnx-community/SmolLM2-135M-Instruct-ONNX";
 
 const form = document.getElementById("form");
 const input = document.getElementById("input");
@@ -239,10 +240,36 @@ const progressNote = document.getElementById("progressNote");
 let generator = null;
 let busy = false;
 
+const personality = `
+You are Light AI, a friendly personal AI assistant.
+
+YOUR PERSONALITY:
+- Friendly and welcoming.
+- Clever, curious and interested in learning.
+- Patient when explaining things.
+- Playful, with a natural sense of humour.
+- Encouraging without being annoying.
+- Honest when you do not know something.
+- Creative and imaginative.
+- Adapt your explanations to the person chatting.
+
+YOUR BEHAVIOUR:
+- Talk naturally, like a helpful conversational assistant.
+- Be warm without overusing emojis.
+- Give clear and useful answers.
+- Ask a short follow-up question when it genuinely helps.
+- Remember the conversation context provided to you.
+- Never pretend to know something you do not know.
+- Keep simple answers short and explain complicated things clearly.
+
+You are Light AI.
+Your motto is THINK, LEARN, CREATE.
+`;
+
 const conversation = [
   {
     role: "system",
-    content: "You are Light AI, a friendly, helpful and clear assistant. Give simple, useful answers. Be honest when you don't know something."
+    content: personality
   }
 ];
 
@@ -250,13 +277,17 @@ function addMessage(text, type) {
   const message = document.createElement("div");
   message.className = "message " + type;
   message.textContent = text;
+
   chat.appendChild(message);
   chat.scrollTop = chat.scrollHeight;
+
   return message;
 }
 
 function updateProgress(info) {
-  if (typeof info.progress === "number") {
+  if (info.status === "progress_total" &&
+      typeof info.progress === "number") {
+
     const percent = Math.max(
       0,
       Math.min(100, info.progress)
@@ -270,15 +301,16 @@ function updateProgress(info) {
       "Downloading Light AI's brain...";
 
     progressNote.textContent =
-      info.file || "Downloading model files...";
+      "Downloading model files...";
   }
 
   if (info.status === "ready") {
     progressFill.style.width = "100%";
     progressPercent.textContent = "100%";
-    progressLabel.textContent = "Light AI is ready";
+    progressLabel.textContent =
+      "Preparing Light AI...";
     progressNote.textContent =
-      "Your AI model has loaded successfully.";
+      "Getting your assistant ready...";
   }
 }
 
@@ -286,9 +318,13 @@ async function loadModel() {
   if (generator) return;
 
   progressArea.style.display = "block";
+
   progressLabel.textContent =
     "Downloading Light AI's brain...";
-  progressNote.textContent = "Preparing AI model...";
+
+  progressNote.textContent =
+    "Preparing the model...";
+
   progressFill.style.width = "0%";
   progressPercent.textContent = "0%";
 
@@ -306,9 +342,12 @@ async function loadModel() {
 
   progressFill.style.width = "100%";
   progressPercent.textContent = "100%";
-  progressLabel.textContent = "Light AI is ready";
+
+  progressLabel.textContent =
+    "Light AI is ready";
+
   progressNote.textContent =
-    "Your AI model has loaded successfully.";
+    "Your assistant is ready to chat!";
 
   status.textContent = "Light AI 💜 Ready";
 }
@@ -337,17 +376,18 @@ async function sendMessage(text) {
   try {
     await loadModel();
 
-    status.textContent = "Light AI is thinking...";
+    status.textContent =
+      "Light AI is thinking...";
 
     const recentMessages = [
       conversation[0],
-      ...conversation.slice(-8)
+      ...conversation.slice(-4)
     ];
 
     const result = await generator(
       recentMessages,
       {
-        max_new_tokens: 100,
+        max_new_tokens: 80,
         temperature: 0.7,
         do_sample: true
       }
@@ -359,12 +399,14 @@ async function sendMessage(text) {
       ? generated[generated.length - 1].content
       : String(generated);
 
-    thinking.textContent = answer.trim() ||
-      "I couldn't generate an answer. Try again.";
+    const cleanAnswer = String(answer).trim();
+
+    thinking.textContent = cleanAnswer ||
+      "I couldn't generate an answer. Please try again.";
 
     conversation.push({
       role: "assistant",
-      content: answer
+      content: cleanAnswer
     });
 
     status.textContent = "Light AI · Ready";
@@ -380,13 +422,17 @@ async function sendMessage(text) {
       "TEMPORARY DIAGNOSTIC ERROR:\n" + detail;
 
     status.textContent = "AI loading error";
-    progressLabel.textContent = "Loading failed";
+
+    progressLabel.textContent =
+      "Something went wrong";
+
     progressNote.textContent =
       "Temporary diagnostic mode is active.";
 
     generator = null;
+  }
 
-  } finally {
+  finally {
     busy = false;
     send.disabled = false;
     input.disabled = false;
@@ -399,6 +445,7 @@ form.addEventListener("submit", event => {
   event.preventDefault();
 
   const text = input.value.trim();
+
   if (!text || busy) return;
 
   input.value = "";
