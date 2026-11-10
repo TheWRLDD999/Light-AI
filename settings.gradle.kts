@@ -1,3 +1,4 @@
+
 pluginManagement {
     repositories {
         google()
@@ -15,4 +16,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "LightAI"
-include(":app")
+include(":android:app")
