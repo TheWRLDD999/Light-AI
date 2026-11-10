@@ -12,8 +12,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Get project files
+      - name: Get Light AI files
         uses: actions/checkout@v4
+
+      - name: Get llama.cpp
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          path: llama.cpp
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -21,14 +27,33 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Set up Android
+      - name: Set up Android SDK and NDK
         uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools'
 
-      - name: Install Android SDK
+      - name: Install Android tools
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.2.12479018" \
+            "cmake;3.22.1"
+
+      - name: Build llama.cpp for 32-bit ARM
+        run: |
+          export ANDROID_NDK="$ANDROID_HOME/ndk/27.2.12479018"
+
+          cmake -S llama.cpp -B llama.cpp/build-android \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=armeabi-v7a \
+            -DANDROID_PLATFORM=android-23 \
+            -DGGML_NATIVE=OFF \
+            -DGGML_OPENMP=OFF \
+            -DGGML_LLAMAFILE=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_EXAMPLES=ON \
+            -DLLAMA_BUILD_SERVER=OFF
+
+          cmake --build llama.cpp/build-android \
+            --target llama-cli --parallel 2
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -38,9 +63,11 @@ jobs:
       - name: Build Light AI APK
         run: gradle :android:app:assembleDebug
 
-      - name: Save APK
+      - name: Save build files
         uses: actions/upload-artifact@v4
         with:
-          name: Light-AI-Android
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          
+          name: Light-AI-Engine-Test
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            llama.cpp/build-android/bin/llama-cli
+            
