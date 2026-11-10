@@ -8,7 +8,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.thewrldd999.lightai"
+        applicationId = "com.thewrldd999.lightaicheck"
         minSdk = 23
         targetSdk = 35
         versionCode = 1
