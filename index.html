@@ -17,6 +17,7 @@ body {
   background: #100e17;
   color: #f5f2fa;
   font-family: system-ui, sans-serif;
+  height: 100vh;
   height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -89,6 +90,22 @@ main {
   background: #100e17;
 }
 
+.prepare-area {
+  max-width: 760px;
+  margin: 0 auto 12px;
+  text-align: center;
+}
+
+.prepare-button {
+  padding: 12px 20px;
+  border: 0;
+  background: #8256d9;
+  color: white;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
 form {
   max-width: 760px;
   margin: auto;
@@ -114,6 +131,10 @@ textarea {
 }
 
 button {
+  cursor: pointer;
+}
+
+form button {
   border: 0;
   background: #8256d9;
   color: white;
@@ -206,24 +227,24 @@ button:disabled {
     </div>
   </div>
 
+  <div class="prepare-area">
+    <button class="prepare-button" id="prepareButton" type="button">
+      Download / Load AI
+    </button>
+  </div>
+
   <form id="form">
     <textarea id="input" rows="1"
       placeholder="Message Light AI..." required></textarea>
-    <button id="send" type="submit">Send</button>
+    <button id="send" type="submit" disabled>Send</button>
   </form>
 
   <div class="status" id="status">
-    Light AI · Ready to start
+    Light AI · Ready to prepare
   </div>
 </div>
 
-<script type="module">
-import { pipeline } from
-  "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2";
-
-const MODEL =
-  "onnx-community/SmolLM2-135M-Instruct-ONNX";
-
+<script>
 const form = document.getElementById("form");
 const input = document.getElementById("input");
 const chat = document.getElementById("chat");
@@ -231,47 +252,15 @@ const status = document.getElementById("status");
 const send = document.getElementById("send");
 const welcome = document.getElementById("welcome");
 
+const prepareButton = document.getElementById("prepareButton");
 const progressArea = document.getElementById("progressArea");
 const progressFill = document.getElementById("progressFill");
 const progressPercent = document.getElementById("progressPercent");
 const progressLabel = document.getElementById("progressLabel");
 const progressNote = document.getElementById("progressNote");
 
-let generator = null;
 let busy = false;
-
-const personality = `
-You are Light AI, a friendly personal AI assistant.
-
-YOUR PERSONALITY:
-- Friendly and welcoming.
-- Clever, curious and interested in learning.
-- Patient when explaining things.
-- Playful, with a natural sense of humour.
-- Encouraging without being annoying.
-- Honest when you do not know something.
-- Creative and imaginative.
-- Adapt your explanations to the person chatting.
-
-YOUR BEHAVIOUR:
-- Talk naturally, like a helpful conversational assistant.
-- Be warm without overusing emojis.
-- Give clear and useful answers.
-- Ask a short follow-up question when it genuinely helps.
-- Remember the conversation context provided to you.
-- Never pretend to know something you do not know.
-- Keep simple answers short and explain complicated things clearly.
-
-You are Light AI.
-Your motto is THINK, LEARN, CREATE.
-`;
-
-const conversation = [
-  {
-    role: "system",
-    content: personality
-  }
-];
+let modelReady = false;
 
 function addMessage(text, type) {
   const message = document.createElement("div");
@@ -284,76 +273,119 @@ function addMessage(text, type) {
   return message;
 }
 
-function updateProgress(info) {
-  if (info.status === "progress_total" &&
-      typeof info.progress === "number") {
-
-    const percent = Math.max(
-      0,
-      Math.min(100, info.progress)
-    );
-
-    progressFill.style.width = percent + "%";
-    progressPercent.textContent =
-      Math.round(percent) + "%";
-
-    progressLabel.textContent =
-      "Downloading Light AI's brain...";
-
-    progressNote.textContent =
-      "Downloading model files...";
-  }
-
-  if (info.status === "ready") {
-    progressFill.style.width = "100%";
-    progressPercent.textContent = "100%";
-    progressLabel.textContent =
-      "Preparing Light AI...";
-    progressNote.textContent =
-      "Getting your assistant ready...";
-  }
-}
-
-async function loadModel() {
-  if (generator) return;
-
+function setReady() {
+  modelReady = true;
+  send.disabled = false;
+  prepareButton.style.display = "none";
   progressArea.style.display = "block";
-
-  progressLabel.textContent =
-    "Downloading Light AI's brain...";
-
-  progressNote.textContent =
-    "Preparing the model...";
-
-  progressFill.style.width = "0%";
-  progressPercent.textContent = "0%";
-
-  status.textContent = "Loading Light AI...";
-
-  generator = await pipeline(
-    "text-generation",
-    MODEL,
-    {
-      dtype: "q4",
-      device: "wasm",
-      progress_callback: updateProgress
-    }
-  );
 
   progressFill.style.width = "100%";
   progressPercent.textContent = "100%";
-
-  progressLabel.textContent =
-    "Light AI is ready";
-
-  progressNote.textContent =
-    "Your assistant is ready to chat!";
-
-  status.textContent = "Light AI 💜 Ready";
+  progressLabel.textContent = "Light AI is ready";
+  progressNote.textContent = "Your assistant is ready to chat!";
+  status.textContent = "Light AI · Ready 💜";
 }
 
-async function sendMessage(text) {
-  if (busy) return;
+function showProgress(message) {
+  progressArea.style.display = "block";
+  status.textContent = message;
+
+  const match = message.match(/(\d+)%/);
+
+  if (match) {
+    const percent = Math.min(100, Number(match[1]));
+    progressFill.style.width = percent + "%";
+    progressPercent.textContent = percent + "%";
+    progressLabel.textContent = "Downloading Light AI's brain...";
+    progressNote.textContent = "Downloading model files...";
+  } else {
+    progressLabel.textContent = "Preparing Light AI...";
+    progressNote.textContent = message;
+  }
+
+  if (message.includes("loaded successfully")) {
+    setReady();
+  } else if (
+    message.includes("failed") ||
+    message.includes("Failed") ||
+    message.includes("Not enough") ||
+    message.includes("Could not")
+  ) {
+    prepareButton.style.display = "inline-block";
+    prepareButton.disabled = false;
+    prepareButton.textContent = "Try Again";
+    progressLabel.textContent = "Something went wrong";
+    progressNote.textContent = message;
+  }
+}
+
+window.onLightAIStatus = function(message) {
+  showProgress(String(message));
+};
+
+window.onLightAIResponse = function(message) {
+  const thinking = document.getElementById("thinking");
+
+  if (thinking) {
+    thinking.textContent = String(message);
+    thinking.removeAttribute("id");
+  }
+
+  status.textContent = "Light AI · Ready";
+  busy = false;
+  send.disabled = false;
+  input.disabled = false;
+  input.focus();
+  chat.scrollTop = chat.scrollHeight;
+};
+
+prepareButton.addEventListener("click", function() {
+  if (!window.LightAI) {
+    status.textContent =
+      "Please open Light AI using the installed Android app.";
+    return;
+  }
+
+  prepareButton.disabled = true;
+  prepareButton.textContent = "Preparing...";
+  progressArea.style.display = "block";
+  progressLabel.textContent = "Starting Light AI...";
+  progressNote.textContent = "Connecting to the AI engine...";
+  status.textContent = "Preparing Light AI...";
+
+  try {
+    const result = window.LightAI.getModelStatus();
+
+    if (result === "READY") {
+      setReady();
+      return;
+    }
+
+    if (result === "DOWNLOADING") {
+      showProgress("Download already in progress...");
+      return;
+    }
+
+    window.LightAI.downloadModel();
+
+  } catch (error) {
+    prepareButton.disabled = false;
+    prepareButton.textContent = "Try Again";
+    status.textContent = "Could not start AI: " + error.message;
+  }
+});
+
+form.addEventListener("submit", function(event) {
+  event.preventDefault();
+
+  const text = input.value.trim();
+
+  if (!text || busy) return;
+
+  if (!modelReady || !window.LightAI) {
+    status.textContent = "Please prepare Light AI first.";
+    return;
+  }
 
   busy = true;
   send.disabled = true;
@@ -362,103 +394,46 @@ async function sendMessage(text) {
   welcome?.remove();
 
   addMessage(text, "user");
+  input.value = "";
 
-  conversation.push({
-    role: "user",
-    content: text
-  });
+  const thinking = addMessage("Thinking...", "assistant");
+  thinking.id = "thinking";
 
-  const thinking = addMessage(
-    "Thinking...",
-    "assistant"
-  );
+  status.textContent = "Light AI is thinking...";
 
   try {
-    await loadModel();
-
-    status.textContent =
-      "Light AI is thinking...";
-
-    const recentMessages = [
-      conversation[0],
-      ...conversation.slice(-4)
-    ];
-
-    const result = await generator(
-      recentMessages,
-      {
-        max_new_tokens: 80,
-        temperature: 0.7,
-        do_sample: true
-      }
-    );
-
-    const generated = result[0].generated_text;
-
-    const answer = Array.isArray(generated)
-      ? generated[generated.length - 1].content
-      : String(generated);
-
-    const cleanAnswer = String(answer).trim();
-
-    thinking.textContent = cleanAnswer ||
-      "I couldn't generate an answer. Please try again.";
-
-    conversation.push({
-      role: "assistant",
-      content: cleanAnswer
-    });
-
-    status.textContent = "Light AI · Ready";
-
+    window.LightAI.sendMessage(text);
   } catch (error) {
-    console.error(error);
-
-    const detail = String(
-      error?.message || error
-    ).slice(0, 500);
-
     thinking.textContent =
-      "TEMPORARY DIAGNOSTIC ERROR:\n" + detail;
+      "Sorry, something went wrong: " + error.message;
 
-    status.textContent = "AI loading error";
-
-    progressLabel.textContent =
-      "Something went wrong";
-
-    progressNote.textContent =
-      "Temporary diagnostic mode is active.";
-
-    generator = null;
-  }
-
-  finally {
     busy = false;
     send.disabled = false;
     input.disabled = false;
-    input.focus();
-    chat.scrollTop = chat.scrollHeight;
+    status.textContent = "Light AI · Ready";
   }
-}
-
-form.addEventListener("submit", event => {
-  event.preventDefault();
-
-  const text = input.value.trim();
-
-  if (!text || busy) return;
-
-  input.value = "";
-  sendMessage(text);
 });
 
-input.addEventListener("keydown", event => {
+input.addEventListener("keydown", function(event) {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
     form.requestSubmit();
   }
 });
+
+if (window.LightAI) {
+  try {
+    if (window.LightAI.getModelStatus() === "READY") {
+      setReady();
+    }
+  } catch (error) {
+    status.textContent = "Light AI · Ready to prepare";
+  }
+} else {
+  status.textContent = "Light AI · Open the installed app";
+}
 </script>
 
 </body>
-</html>
+      </html>
+    
